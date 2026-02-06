@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Eficiência - HGF</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Ajuste para que o corpo da página não role, apenas a tabela */
+        body.page-status {
+            overflow: hidden; 
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .container-relatorio {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden; /* Mantém o container fixo */
+        }
+
+        /* Container da Tabela com Scroll */
+        .table-container {
+            width: 95%;
+            max-width: 1200px;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-top: 10px;
+            
+            /* MÁGICA DO SCROLL AQUI */
+            overflow-y: auto; 
+            flex: 1; /* Faz a tabela ocupar o espaço disponível e empurrar os botões */
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background-color: #4db1ad;
+            color: white;
+            padding: 12px;
+            position: sticky; /* Mantém o cabeçalho no topo ao rolar */
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Área de Botões sempre visível no final */
+        .area-botoes-relatorio {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding-bottom: 20px;
+            background-color: white; /* Garante visibilidade sobre o fundo */
+        }
+
+        .badge {
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: white;
+        }
+
+        /* Cores das Badges */
+        .badge.ativo-ocupada { background-color: #ff0000; }
+        .badge.ativo-retirada { background-color: #ffdb58; color: black; }
+        .badge.ativo-limpeza { background-color: #ffa07a; }
+        .badge.ativo-disponivel { background-color: #90ee90; color: black; }
+    </style>
+</head>
+<body class="page-status">
+
+    <header class="header-status">
+        <h1 class="titulo-pagina">Relatório de Ocupação e Eficiência</h1>
+    </header>
+
+    <div class="container-relatorio">
+        <div class="logo-status-container" style="display: flex; justify-content: flex-end; width: 95%;">
+            <img src="logo.png" alt="Logo HGF" class="logo-status">
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sala</th>
+                        <th>Status</th>
+                        <th>Início</th>
+                        <th>Duração</th>
+                    </tr>
+                </thead>
+                <tbody id="tabela-corpo">
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="area-botoes-relatorio">
+            <button onclick="limparHistorico()" class="btn-salvar-config" style="background-color: #ff4d4d;">LIMPAR TUDO</button>
+            <a href="controle.html" class="btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">VOLTAR</a>
+        </div>
+    </div>
+
+    <script>
+        function carregarRelatorio() {
+            const corpo = document.getElementById('tabela-corpo');
+            corpo.innerHTML = "";
+            let temDados = false;
+
+            for (let i = 1; i <= 16; i++) {
+                const historico = JSON.parse(localStorage.getItem(`historico_sala_${i}`)) || [];
+                
+                // Mostra os eventos mais recentes de cada sala no topo
+                [...historico].reverse().forEach(evento => {
+                    temDados = true;
+                    const linha = document.createElement('tr');
+                    linha.innerHTML = `
+                        <td><strong>Sala ${i}</strong></td>
+                        <td><span class="badge ativo-${evento.status}">${evento.status}</span></td>
+                        <td>${evento.horarioInicio}</td>
+                        <td>${evento.duracao}</td>
+                    `;
+                    corpo.appendChild(linha);
+                });
+            }
+
+            if (!temDados) {
+                corpo.innerHTML = "<tr><td colspan='4' style='text-align:center; padding: 50px;'>Nenhum dado registrado ainda.</td></tr>";
+            }
+        }
+
+        function limparHistorico() {
+            if (confirm("Deseja apagar todo o histórico de todas as salas?")) {
+                for (let i = 1; i <= 16; i++) {
+                    localStorage.removeItem(`historico_sala_${i}`);
+                    localStorage.removeItem(`status_sala_${i}`);
+                }
+                location.reload();
+            }
+        }
+
+        window.onload = carregarRelatorio;
+    </script>
+</body>
+</html>

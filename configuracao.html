@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuração da Sala - HGF</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="page-status">
+
+    <div id="mySidebar" class="modal-sidebar">
+        <div class="sidebar-header">
+            <span class="close-btn" onclick="toggleSidebar()">&times;</span>
+        </div>
+        <nav class="sidebar-links">
+            <a href="controle.html">🏠 Ir para Controle</a>
+            <a href="visao.html">👁️ Ir para Visão</a>
+            <a href="inicio.html">Início</a>
+        </nav>
+    </div>
+    <div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+
+    <header class="header-status">
+        <h1 class="titulo-pagina" id="titulo-sala">Controle - Configuração</h1>
+    </header>
+
+    <div class="container-principal">
+        <aside class="sidebar">
+            <div class="icon-btn" onclick="toggleSidebar()">☰</div>
+            <a id="link-voltar" href="#"><div class="icon-btn active">📋</div></a>
+        </aside>
+
+        <main class="content-status">
+            <div class="logo-status-container">
+                <img src="logo.png" alt="Logo HGF" class="logo-status">
+            </div>
+
+            <form id="form-config-sala">
+                <div class="config-grid">
+                    <div class="card-profissional">
+                        <div class="header-card">Enfermeiro</div>
+                        <input type="text" id="enf" class="input-nome" placeholder="Nome...">
+                    </div>
+                    <div class="card-profissional">
+                        <div class="header-card">Tec. Enfermagem</div>
+                        <input type="text" id="tec1" class="input-nome" placeholder="Nome...">
+                    </div>
+                    <div class="card-profissional">
+                        <div class="header-card">Tec. Enfermagem</div>
+                        <input type="text" id="tec2" class="input-nome" placeholder="Nome...">
+                    </div>
+                    <div class="card-profissional">
+                        <div class="header-card">Anestesista</div>
+                        <input type="text" id="ane" class="input-nome" placeholder="Nome...">
+                    </div>
+                    <div class="card-profissional">
+                        <div class="header-card">Resid. Anestesia</div>
+                        <input type="text" id="res_ane" class="input-nome" placeholder="Nome...">
+                    </div>
+                    <div class="card-profissional">
+                        <div class="header-card">Cirurgião</div>
+                        <input type="text" id="cir" class="input-nome" placeholder="Nome...">
+                    </div>
+                </div>
+
+                <div class="area-botoes">
+                    <button type="button" onclick="salvarEscala()" class="btn-salvar-config">
+                        SALVAR ESCALA DA SALA
+                    </button>
+                </div>
+            </form>
+
+            <footer class="footer-status">
+                <div class="data-atual" id="data-js">--/--/--</div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // 1. Identifica qual sala estamos acessando pela URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const numeroSala = urlParams.get('sala') || '1'; 
+
+        // 2. Atualiza o título e o botão de voltar automaticamente
+        document.getElementById('titulo-sala').textContent = `Controle - Configuração da Sala ${numeroSala}`;
+        document.getElementById('link-voltar').href = `sala${numeroSala}.html`;
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById("mySidebar");
+            const overlay = document.getElementById("overlay");
+            sidebar.style.left = (sidebar.style.left === "0px") ? "-300px" : "0px";
+            overlay.style.display = (overlay.style.display === "block") ? "none" : "block";
+        }
+
+        // 3. Salva os dados usando uma chave ÚNICA por sala
+        function salvarEscala() {
+            const dados = {
+                enfermeiro: document.getElementById('enf').value,
+                tec1: document.getElementById('tec1').value,
+                tec2: document.getElementById('tec2').value,
+                anestesista: document.getElementById('ane').value,
+                res_anestesia: document.getElementById('res_ane').value,
+                cirurgiao: document.getElementById('cir').value
+            };
+            
+            localStorage.setItem(`dados_sala_${numeroSala}`, JSON.stringify(dados));
+            alert(`✅ Escala da Sala ${numeroSala} salva com sucesso!`);
+        }
+
+        // 4. Carrega os dados específicos desta sala ao abrir
+        window.onload = function() {
+            const salvos = localStorage.getItem(`dados_sala_${numeroSala}`);
+            if (salvos) {
+                const d = JSON.parse(salvos);
+                document.getElementById('enf').value = d.enfermeiro || '';
+                document.getElementById('tec1').value = d.tec1 || '';
+                document.getElementById('tec2').value = d.tec2 || '';
+                document.getElementById('ane').value = d.anestesista || '';
+                document.getElementById('res_ane').value = d.res_anestesia || '';
+                document.getElementById('cir').value = d.cirurgiao || '';
+            }
+            
+            const agora = new Date();
+            document.getElementById('data-js').textContent = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${String(agora.getFullYear()).slice(-2)}`;
+        };
+    </script>
+</body>
+</html>
