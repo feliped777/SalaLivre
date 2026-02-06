@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visão - Salas Cirúrgicas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="page-visao">
+
+    <header class="header-status">
+        <h1 class="titulo-pagina">Visão - Salas Cirúrgicas</h1>
+    </header>
+
+    <div class="container-visao">
+        <aside class="legenda">
+            <div class="logo-status-container" style="justify-content: center; padding-bottom: 40px;">
+                <img src="logo.png" alt="Logo HGF" class="logo-status">
+            </div>
+            
+            <div class="item-legenda">
+                <span class="circulo disponivel"></span> Disponível
+            </div>
+            <div class="item-legenda">
+                <span class="circulo retirada"></span> Retirada
+            </div>
+            <div class="item-legenda">
+                <span class="circulo limpeza"></span> Limpeza
+            </div>
+            <div class="item-legenda">
+                <span class="circulo ocupada"></span> Ocupada
+            </div>
+            <div class="item-legenda">
+                <span class="circulo indisponivel"></span> Indisponível
+            </div>
+        </aside>
+
+        <main class="grid-colmeia">
+            <div class="hex-row">
+                <div id="sala-2" class="hexagon"><span>Sala 2</span></div>
+                <div id="sala-4" class="hexagon"><span>Sala 4</span></div>
+                <div id="sala-6" class="hexagon"><span>Sala 6</span></div>
+                <div id="sala-8" class="hexagon"><span>Sala 8</span></div>
+            </div>
+            <div class="hex-row offset">
+                <div id="sala-1" class="hexagon"><span>Sala 1</span></div>
+                <div id="sala-3" class="hexagon"><span>Sala 3</span></div>
+                <div id="sala-5" class="hexagon"><span>Sala 5</span></div>
+                <div id="sala-7" class="hexagon"><span>Sala 7</span></div>
+            </div>
+            <div class="hex-row">
+                <div id="sala-10" class="hexagon"><span>Sala 10</span></div>
+                <div id="sala-12" class="hexagon"><span>Sala 12</span></div>
+                <div id="sala-14" class="hexagon"><span>Sala 14</span></div>
+                <div id="sala-16" class="hexagon"><span>Sala 16</span></div>
+            </div>
+            <div class="hex-row offset">
+                <div id="sala-9" class="hexagon"><span>Sala 9</span></div>
+                <div id="sala-11" class="hexagon"><span>Sala 11</span></div>
+                <div id="sala-13" class="hexagon"><span>Sala 13</span></div>
+                <div id="sala-15" class="hexagon"><span>Sala 15</span></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function atualizarPainelVisao() {
+            console.log("Atualizando painel..."); // Apenas para debug no console
+            for (let i = 1; i <= 16; i++) {
+                const statusSalvo = localStorage.getItem(`status_sala_${i}`);
+                const hexElemento = document.getElementById(`sala-${i}`);
+
+                if (hexElemento) {
+                    hexElemento.classList.remove('disponivel', 'retirada', 'limpeza', 'ocupada', 'indisponivel');
+                    const classeFinal = statusSalvo || 'indisponivel';
+                    hexElemento.classList.add(classeFinal);
+                }
+            }
+        }
+
+        // 1. Atualiza ao carregar a página normalmente
+        window.onload = atualizarPainelVisao;
+
+        // 2. MÁGICA DA ATUALIZAÇÃO AUTOMÁTICA:
+        // Este evento escuta mudanças no localStorage vindas de OUTRAS abas
+        window.addEventListener('storage', (event) => {
+            if (event.key && event.key.startsWith('status_sala_')) {
+                atualizarPainelVisao();
+            }
+        });
+
+        // 3. OPCIONAL: Atualização forçada a cada 2 segundos 
+        // (Garante atualização mesmo se estiver na mesma aba em alguns navegadores)
+        setInterval(atualizarPainelVisao, 2000);
+    </script>
+</body>
+</html>

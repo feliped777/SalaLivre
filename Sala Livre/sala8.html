@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status da Sala - HGF</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Estilos para destacar o botão ativo com a cor do status */
+        .btn-status.ativo-ocupada { background-color: #ff0000 !important; color: white; }
+        .btn-status.ativo-retirada { background-color: #ffdb58 !important; color: black; }
+        .btn-status.ativo-limpeza { background-color: #ffa07a !important; color: white; }
+        .btn-status.ativo-disponivel { background-color: #90ee90 !important; color: black; }
+    </style>
+</head>
+<body class="page-status">
+
+    <div id="mySidebar" class="modal-sidebar">
+        <div class="sidebar-header">
+            <span class="close-btn" onclick="toggleSidebar()">&times;</span>
+        </div>
+        <nav class="sidebar-links">
+            <a href="controle.html">🏠 Ir para Controle</a>
+            <a href="visao.html">👁️ Ir para Visão</a>
+            <a href="inicio.html">Início</a>
+            <a href="relatorio.html">📊 Relatórios</a> <a href="inicio.html">Início</a>
+        </nav>
+    </div>
+
+    <div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+
+    <header class="header-status">
+        <h1 class="titulo-pagina">Controle - Status da Sala 8</h1>
+    </header>
+
+    <div class="container-principal">
+        <aside class="sidebar">
+            <div class="icon-btn" onclick="toggleSidebar()">☰</div>
+            <a id="link-config" href="configuracao.html?sala=8" style="text-decoration: none;">
+                <div class="icon-btn">📋</div>
+            </a>
+        </aside>
+
+        <main class="content-status">
+            <div class="logo-status-container">
+                <img src="logo.png" alt="Logo HGF" class="logo-status">
+            </div>
+
+            <div class="status-grid">
+                <button id="btn-ocupada" class="btn-status" onclick="definirStatus('ocupada')">Sala em Cirurgia</button>
+                <button id="btn-retirada" class="btn-status" onclick="definirStatus('retirada')">Retirada de Paciente</button>
+                <button id="btn-limpeza" class="btn-status" onclick="definirStatus('limpeza')">Limpeza iniciada</button>
+                <div class="spacer"></div>
+                <button id="btn-disponivel" class="btn-status central" onclick="definirStatus('disponivel')">Sala pronta para cirurgia</button>
+            </div>
+
+            <footer class="footer-status">
+                <div class="data-atual" id="data-js">--/--/--</div>
+                <div class="relogio" id="relogio-js">
+                    <span class="icon-clock">🕒</span> 00:00
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        // --- 1. IDENTIFICAÇÃO E NAVEGAÇÃO ---
+        const h1Texto = document.querySelector('.titulo-pagina').textContent;
+        const numSala = h1Texto.match(/\d+/)[0];
+        document.getElementById('link-config').href = `configuracao.html?sala=${numSala}`;
+
+        // --- 2. FUNÇÃO DO SIDEBAR (A que estava faltando!) ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById("mySidebar");
+            const overlay = document.getElementById("overlay");
+            
+            if (sidebar.style.left === "0px") {
+                sidebar.style.left = "-300px";
+                overlay.style.display = "none";
+            } else {
+                sidebar.style.left = "0px";
+                overlay.style.display = "block";
+            }
+        }
+
+        // --- 3. LÓGICA DE STATUS E BANCO DE DADOS ---
+        function definirStatus(novoStatus) {
+            const agora = new Date();
+            const timestampAtual = agora.getTime();
+            const horarioFormatado = agora.toLocaleTimeString('pt-BR');
+
+            let historico = JSON.parse(localStorage.getItem(`historico_sala_${numSala}`)) || [];
+            let duracaoFormatada = "Início";
+
+            if (historico.length > 0) {
+                const ultimoEvento = historico[historico.length - 1];
+                const diferencaMs = timestampAtual - ultimoEvento.timestamp;
+                const totalMinutos = Math.floor(diferencaMs / 60000);
+                const segundosRestantes = Math.floor((diferencaMs % 60000) / 1000);
+                duracaoFormatada = `${totalMinutos}min ${segundosRestantes}s`;
+                ultimoEvento.duracao = duracaoFormatada;
+            }
+
+            const novoRegistro = {
+                status: novoStatus,
+                horarioInicio: horarioFormatado,
+                timestamp: timestampAtual,
+                duracao: "Em curso..."
+            };
+
+            historico.push(novoRegistro);
+            localStorage.setItem(`historico_sala_${numSala}`, JSON.stringify(historico));
+            localStorage.setItem(`status_sala_${numSala}`, novoStatus);
+
+            atualizarCoresBotoes(novoStatus);
+        }
+
+        function atualizarCoresBotoes(statusAtivo) {
+            const botoes = document.querySelectorAll('.btn-status');
+            botoes.forEach(btn => {
+                btn.classList.remove('ativo-ocupada', 'ativo-retirada', 'ativo-limpeza', 'ativo-disponivel');
+            });
+
+            const mapaIds = {
+                'ocupada': 'btn-ocupada',
+                'retirada': 'btn-retirada',
+                'limpeza': 'btn-limpeza',
+                'disponivel': 'btn-disponivel'
+            };
+            
+            const id = mapaIds[statusAtivo];
+            if (id) document.getElementById(id).classList.add(`ativo-${statusAtivo}`);
+        }
+
+        // --- 4. RELÓGIO E INICIALIZAÇÃO ---
+        function atualizarRelogio() {
+            const agora = new Date();
+            const dia = String(agora.getDate()).padStart(2, '0');
+            const mes = String(agora.getMonth() + 1).padStart(2, '0');
+            const ano = String(agora.getFullYear()).slice(-2);
+            const horas = String(agora.getHours()).padStart(2, '0');
+            const minutos = String(agora.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('data-js').textContent = `${dia}/${mes}/${ano}`;
+            document.getElementById('relogio-js').innerHTML = `<span class="icon-clock">🕒</span> ${horas}:${minutos}`;
+        }
+
+        window.onload = function() {
+            atualizarRelogio();
+            setInterval(atualizarRelogio, 1000);
+            
+            const statusAtual = localStorage.getItem(`status_sala_${numSala}`);
+            if (statusAtual) atualizarCoresBotoes(statusAtual);
+        };
+    </script>
+</body>
+</html>
