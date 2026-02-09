@@ -5,6 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuração da Sala - HGF</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* AJUSTES PARA ATIVAR O SCROLL E LAYOUT FIXO */
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden; 
+        }
+
+        .container-principal {
+            display: flex;
+            height: calc(100vh - 80px); 
+        }
+
+        /* Área central rolável */
+        .content-status {
+            flex: 1;
+            overflow-y: auto; 
+            padding: 20px;
+            padding-bottom: 50px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #form-config-sala {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .area-botoes {
+            margin-top: 30px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Estilização da barra de rolagem */
+        .content-status::-webkit-scrollbar {
+            width: 8px;
+        }
+        .content-status::-webkit-scrollbar-thumb {
+            background: #4db1ad;
+            border-radius: 10px;
+        }
+    </style>
 </head>
 <body class="page-status">
 
@@ -39,16 +84,16 @@
             <form id="form-config-sala">
                 <div class="config-grid">
                     <div class="card-profissional">
-                        <div class="header-card">Enfermeiro</div>
+                        <div class="header-card">Enfermeiro(a)</div>
                         <input type="text" id="enf" class="input-nome" placeholder="Nome...">
                     </div>
                     <div class="card-profissional">
-                        <div class="header-card">Tec. Enfermagem</div>
-                        <input type="text" id="tec1" class="input-nome" placeholder="Nome...">
+                        <div class="header-card">Instrumentador(a)</div>
+                        <input type="text" id="inst" class="input-nome" placeholder="Nome...">
                     </div>
                     <div class="card-profissional">
-                        <div class="header-card">Tec. Enfermagem</div>
-                        <input type="text" id="tec2" class="input-nome" placeholder="Nome...">
+                        <div class="header-card">Circulante(a)</div>
+                        <input type="text" id="circ" class="input-nome" placeholder="Nome...">
                     </div>
                     <div class="card-profissional">
                         <div class="header-card">Anestesista</div>
@@ -61,6 +106,10 @@
                     <div class="card-profissional">
                         <div class="header-card">Cirurgião</div>
                         <input type="text" id="cir" class="input-nome" placeholder="Nome...">
+                    </div>
+                    <div class="card-profissional">
+                        <div class="header-card">Resid. Cirurgia</div>
+                        <input type="text" id="res_cir" class="input-nome" placeholder="Nome...">
                     </div>
                 </div>
 
@@ -77,50 +126,70 @@
         </main>
     </div>
 
-    <script>
-        // 1. Identifica qual sala estamos acessando pela URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const numeroSala = urlParams.get('sala') || '1'; 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // 2. Atualiza o título e o botão de voltar automaticamente
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_H-Ilb_bXEf uL6aNyLu3cvUBe9G_3RKY",
+            authDomain: "salalivre-51288.firebaseapp.com",
+            projectId: "salalivre-51288",
+            storageBucket: "salalivre-51288.firebasestorage.app",
+            messagingSenderId: "307835751640",
+            appId: "1:307835751640:web:715796b42b827e7f9a0c7b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const numeroSala = urlParams.get('sala') || '1';
+
         document.getElementById('titulo-sala').textContent = `Controle - Configuração da Sala ${numeroSala}`;
         document.getElementById('link-voltar').href = `sala${numeroSala}.html`;
 
-        function toggleSidebar() {
+        window.toggleSidebar = function() {
             const sidebar = document.getElementById("mySidebar");
             const overlay = document.getElementById("overlay");
             sidebar.style.left = (sidebar.style.left === "0px") ? "-300px" : "0px";
             overlay.style.display = (overlay.style.display === "block") ? "none" : "block";
         }
 
-        // 3. Salva os dados usando uma chave ÚNICA por sala
-        function salvarEscala() {
+        window.salvarEscala = function() {
             const dados = {
                 enfermeiro: document.getElementById('enf').value,
-                tec1: document.getElementById('tec1').value,
-                tec2: document.getElementById('tec2').value,
+                instrumentador: document.getElementById('inst').value,
+                circulante: document.getElementById('circ').value,
                 anestesista: document.getElementById('ane').value,
                 res_anestesia: document.getElementById('res_ane').value,
-                cirurgiao: document.getElementById('cir').value
+                cirurgiao: document.getElementById('cir').value,
+                residente: document.getElementById('res_cir').value,
+                timestamp_escala: Date.now()
             };
-            
-            localStorage.setItem(`dados_sala_${numeroSala}`, JSON.stringify(dados));
-            alert(`✅ Escala da Sala ${numeroSala} salva com sucesso!`);
+
+            set(ref(db, `config_salas/sala${numeroSala}`), dados)
+                .then(() => {
+                    alert(`✅ Escala da Sala ${numeroSala} sincronizada na nuvem!`);
+                    window.location.href = `sala${numeroSala}.html`; 
+                })
+                .catch((error) => alert("Erro ao salvar: " + error));
         }
 
-        // 4. Carrega os dados específicos desta sala ao abrir
         window.onload = function() {
-            const salvos = localStorage.getItem(`dados_sala_${numeroSala}`);
-            if (salvos) {
-                const d = JSON.parse(salvos);
-                document.getElementById('enf').value = d.enfermeiro || '';
-                document.getElementById('tec1').value = d.tec1 || '';
-                document.getElementById('tec2').value = d.tec2 || '';
-                document.getElementById('ane').value = d.anestesista || '';
-                document.getElementById('res_ane').value = d.res_anestesia || '';
-                document.getElementById('cir').value = d.cirurgiao || '';
-            }
-            
+            const configRef = ref(db, `config_salas/sala${numeroSala}`);
+            get(configRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const d = snapshot.val();
+                    document.getElementById('enf').value = d.enfermeiro || '';
+                    document.getElementById('inst').value = d.instrumentador || '';
+                    document.getElementById('circ').value = d.circulante || '';
+                    document.getElementById('ane').value = d.anestesista || '';
+                    document.getElementById('res_ane').value = d.res_anestesia || '';
+                    document.getElementById('cir').value = d.cirurgiao || '';
+                    document.getElementById('res_cir').value = d.residente || '';
+                }
+            });
+
             const agora = new Date();
             document.getElementById('data-js').textContent = `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${String(agora.getFullYear()).slice(-2)}`;
         };

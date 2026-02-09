@@ -1,88 +1,87 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatório de Eficiência - HGF</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Ajuste para que o corpo da página não role, apenas a tabela */
         body.page-status {
             overflow: hidden; 
             display: flex;
             flex-direction: column;
             height: 100vh;
         }
-
         .container-relatorio {
             flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
-            overflow: hidden; /* Mantém o container fixo */
+            overflow: hidden;
         }
-
-        /* Container da Tabela com Scroll */
         .table-container {
-            width: 95%;
-            max-width: 1200px;
+            width: 98%;
             background: white;
             padding: 20px;
             border-radius: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             margin-top: 10px;
-            
-            /* MÁGICA DO SCROLL AQUI */
-            overflow-y: auto; 
-            flex: 1; /* Faz a tabela ocupar o espaço disponível e empurrar os botões */
+            overflow: auto; 
+            flex: 1;
             margin-bottom: 20px;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1900px; }
         th {
             background-color: #4db1ad;
             color: white;
             padding: 12px;
-            position: sticky; /* Mantém o cabeçalho no topo ao rolar */
+            position: sticky;
             top: 0;
             z-index: 10;
+            font-size: 0.9rem;
+        }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        
+        /* Estilo para a linha vazia de separação */
+        .linha-vazia {
+            background-color: #f2f2f2 !important;
+            height: 20px;
         }
 
-        td {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-        }
-
-        /* Área de Botões sempre visível no final */
         .area-botoes-relatorio {
             width: 100%;
             display: flex;
             justify-content: center;
             gap: 20px;
             padding-bottom: 20px;
-            background-color: white; /* Garante visibilidade sobre o fundo */
+            background-color: white;
         }
-
         .badge {
             padding: 5px 10px;
             border-radius: 10px;
             font-weight: bold;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
             color: white;
         }
-
-        /* Cores das Badges */
         .badge.ativo-ocupada { background-color: #ff0000; }
         .badge.ativo-retirada { background-color: #ffdb58; color: black; }
         .badge.ativo-limpeza { background-color: #ffa07a; }
         .badge.ativo-disponivel { background-color: #90ee90; color: black; }
+        
+        .btn-exportar {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .btn-exportar:hover { background-color: #218838; }
     </style>
 </head>
 <body class="page-status">
@@ -97,63 +96,140 @@
         </div>
 
         <div class="table-container">
-            <table>
+            <table id="tabela-dados">
                 <thead>
                     <tr>
+                        <th>Data</th>
                         <th>Sala</th>
                         <th>Status</th>
                         <th>Início</th>
                         <th>Duração</th>
+                        <th>Cirurgião</th>
+                        <th>Resid. Cirurgia</th>
+                        <th>Anestesista</th>
+                        <th>Resid. Anestesia</th>
+                        <th>Enfermeiro</th>
+                        <th>Instrumentador(a)</th>
+                        <th>Circulante(a)</th>
                     </tr>
                 </thead>
-                <tbody id="tabela-corpo">
-                    </tbody>
+                <tbody id="tabela-corpo"></tbody>
             </table>
         </div>
 
         <div class="area-botoes-relatorio">
+            <button onclick="exportarExcel()" class="btn-exportar">📊 EXPORTAR EXCEL</button>
             <button onclick="limparHistorico()" class="btn-salvar-config" style="background-color: #ff4d4d;">LIMPAR TUDO</button>
             <a href="controle.html" class="btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">VOLTAR</a>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_H-Ilb_bXEf uL6aNyLu3cvUBe9G_3RKY",
+            authDomain: "salalivre-51288.firebaseapp.com",
+            projectId: "salalivre-51288",
+            storageBucket: "salalivre-51288.firebasestorage.app",
+            messagingSenderId: "307835751640",
+            appId: "1:307835751640:web:715796b42b827e7f9a0c7b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const traduzirStatus = {
+            'disponivel': 'Sala Pronta',
+            'ocupada': 'Em Cirurgia',
+            'retirada': 'Retirada Paciente',
+            'limpeza': 'Limpeza Iniciada',
+            'preparacao': 'Preparação'
+        };
+
         function carregarRelatorio() {
             const corpo = document.getElementById('tabela-corpo');
-            corpo.innerHTML = "";
-            let temDados = false;
+            const historicoRef = ref(db, 'historico');
 
-            for (let i = 1; i <= 16; i++) {
-                const historico = JSON.parse(localStorage.getItem(`historico_sala_${i}`)) || [];
+            onValue(historicoRef, (snapshot) => {
+                corpo.innerHTML = "";
+                const data = snapshot.val();
                 
-                // Mostra os eventos mais recentes de cada sala no topo
-                [...historico].reverse().forEach(evento => {
-                    temDados = true;
-                    const linha = document.createElement('tr');
-                    linha.innerHTML = `
-                        <td><strong>Sala ${i}</strong></td>
-                        <td><span class="badge ativo-${evento.status}">${evento.status}</span></td>
-                        <td>${evento.horarioInicio}</td>
-                        <td>${evento.duracao}</td>
-                    `;
-                    corpo.appendChild(linha);
-                });
-            }
+                if (!data) {
+                    corpo.innerHTML = "<tr><td colspan='12' style='text-align:center; padding: 50px;'>Nenhum dado registrado ainda.</td></tr>";
+                    return;
+                }
 
-            if (!temDados) {
-                corpo.innerHTML = "<tr><td colspan='4' style='text-align:center; padding: 50px;'>Nenhum dado registrado ainda.</td></tr>";
-            }
+                let ultimaSalaProcessada = ""; // Para rastrear mudança de sala
+
+                Object.keys(data).forEach(salaKey => {
+                    // SE MUDOU A SALA (ex: de Sala 1 para Sala 2), INSERE LINHA VAZIA
+                    if (ultimaSalaProcessada !== "" && ultimaSalaProcessada !== salaKey) {
+                        const trSeparadorSala = document.createElement('tr');
+                        trSeparadorSala.innerHTML = "<td colspan='12' class='linha-vazia'></td>";
+                        corpo.appendChild(trSeparadorSala);
+                    }
+
+                    const eventos = data[salaKey];
+                    const listaEventos = Object.values(eventos).reverse();
+                    let ultimoIdOp = "";
+
+                    listaEventos.forEach(evento => {
+                        // SE MUDOU O PACIENTE NA MESMA SALA, INSERE LINHA VAZIA
+                        if (ultimoIdOp !== "" && ultimoIdOp !== evento.idOperacao) {
+                            const trSeparadorOp = document.createElement('tr');
+                            trSeparadorOp.innerHTML = "<td colspan='12' class='linha-vazia'></td>";
+                            corpo.appendChild(trSeparadorOp);
+                        }
+
+                        const linha = document.createElement('tr');
+                        linha.innerHTML = `
+                            <td>${evento.data || '---'}</td>
+                            <td><strong>${salaKey.replace('sala', 'Sala ')}</strong></td>
+                            <td><span class="badge ativo-${evento.status}">${traduzirStatus[evento.status] || evento.status}</span></td>
+                            <td>${evento.horarioInicio}</td>
+                            <td>${evento.duracao}</td>
+                            <td>${evento.cirurgiao || '---'}</td>
+                            <td>${evento.residente || '---'}</td>
+                            <td>${evento.anestesista || '---'}</td>
+                            <td>${evento.res_anestesia || '---'}</td>
+                            <td>${evento.enfermeiro || '---'}</td>
+                            <td>${evento.instrumentador || '---'}</td>
+                            <td>${evento.circulante || '---'}</td>
+                        `;
+                        corpo.appendChild(linha);
+                        
+                        ultimoIdOp = evento.idOperacao; 
+                    });
+
+                    ultimaSalaProcessada = salaKey; // Atualiza para a próxima comparação de sala
+                });
+            });
         }
 
-        function limparHistorico() {
-            if (confirm("Deseja apagar todo o histórico de todas as salas?")) {
-                for (let i = 1; i <= 16; i++) {
-                    localStorage.removeItem(`historico_sala_${i}`);
-                    localStorage.removeItem(`status_sala_${i}`);
-                }
+        window.exportarExcel = function() {
+            const tabela = document.getElementById("tabela-dados");
+            const wb = XLSX.utils.table_to_book(tabela, { sheet: "Relatório HGF" });
+            const ws = wb.Sheets["Relatório HGF"];
+
+            ws['!cols'] = [
+                {wch: 12}, {wch: 10}, {wch: 20}, {wch: 15}, {wch: 15}, 
+                {wch: 25}, {wch: 25}, {wch: 25}, {wch: 25}, 
+                {wch: 25}, {wch: 25}, {wch: 25}
+            ];
+
+            XLSX.writeFile(wb, "Relatorio_Eficiencia_HGF.xlsx");
+        };
+
+        window.limparHistorico = function() {
+            if (confirm("Deseja apagar todo o histórico de todas as salas na nuvem?")) {
+                set(ref(db, 'historico'), null);
+                set(ref(db, 'status_atual'), null);
+                set(ref(db, 'operacao_ativa'), null);
                 location.reload();
             }
-        }
+        };
 
         window.onload = carregarRelatorio;
     </script>

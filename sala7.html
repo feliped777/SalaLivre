@@ -3,14 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status da Sala - HGF</title>
+    <title>Status da Sala 7 - HGF</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Estilos para destacar o botão ativo com a cor do status */
+        html, body {
+            height: auto;
+            min-height: 100%;
+            overflow-y: auto !important;
+            margin: 0;
+        }
+
+        .content-status {
+            padding-bottom: 120px;
+        }
+
+        /* Cores dos Status */
         .btn-status.ativo-ocupada { background-color: #ff0000 !important; color: white; }
         .btn-status.ativo-retirada { background-color: #ffdb58 !important; color: black; }
         .btn-status.ativo-limpeza { background-color: #ffa07a !important; color: white; }
         .btn-status.ativo-disponivel { background-color: #90ee90 !important; color: black; }
+        .btn-status.ativo-indisponivel { background-color: #333 !important; color: white; border: 2px solid white; }
+        
+        /* Estilo para botão desabilitado (Travado) */
+        .btn-status:disabled {
+            background-color: #e0e0e0 !important;
+            color: #a0a0a0 !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+            border: 1px solid #ccc;
+        }
+
+        .painel-equipe {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px auto;
+            max-width: 600px;
+            border-left: 6px solid #4db1ad;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: left;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 90%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .btn-status {
+            min-height: 60px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: 0.2s;
+        }
     </style>
 </head>
 <body class="page-status">
@@ -21,8 +72,6 @@
         </div>
         <nav class="sidebar-links">
             <a href="controle.html">🏠 Ir para Controle</a>
-            <a href="visao.html">👁️ Ir para Visão</a>
-            <a href="index.html">Início</a>
             <a href="relatorio.html">📊 Relatórios</a>
         </nav>
     </div>
@@ -46,13 +95,30 @@
                 <img src="logo.png" alt="Logo HGF" class="logo-status">
             </div>
 
+            <div id="info-equipe" class="painel-equipe" style="display: none;">
+                <div style="font-size: 1.1rem; color: #333; margin-bottom: 5px;">📍 <strong>Operação Ativa</strong></div>
+                <div><strong>Cirurgião:</strong> <span id="nome-cirurgiao">---</span></div>
+                <div><strong>Residente:</strong> <span id="nome-residente">---</span></div>
+                <div><strong>Enfermeiro:</strong> <span id="nome-enfermeiro">---</span></div>
+            </div>
+
             <div class="status-grid">
-                <button id="btn-ocupada" class="btn-status" onclick="definirStatus('ocupada')">Sala em Cirurgia</button>
-                <button id="btn-retirada" class="btn-status" onclick="definirStatus('retirada')">Retirada de Paciente</button>
-                <button id="btn-limpeza" class="btn-status" onclick="definirStatus('limpeza')">Limpeza iniciada</button>
-                <div class="spacer"></div>
-                <button id="btn-disponivel" class="btn-status central" onclick="definirStatus('disponivel')">Sala pronta para cirurgia</button>
-                 <button id="btn-encerrar" class="btn-status" style="background-color: #666 !important; color: white;" onclick="encerrarAtividades()">Encerrar Atividades (Pausar)</button>
+                <button id="btn-nova-cirurgia" class="btn-status" style="background-color: #4db1ad !important; color: white; grid-column: span 2;" onclick="iniciarNovaCirurgia()">
+                    ✨ INICIAR NOVA CIRURGIA
+                </button>
+
+                <div style="grid-column: span 2; height: 10px;"></div>
+
+                <button id="btn-disponivel" class="btn-status" onclick="definirStatus('disponivel')" disabled>1. Sala Pronta</button>
+                <button id="btn-ocupada" class="btn-status" onclick="definirStatus('ocupada')" disabled>2. Sala em Cirurgia</button>
+                <button id="btn-retirada" class="btn-status" onclick="definirStatus('retirada')" disabled>3. Retirada de Paciente</button>
+                <button id="btn-limpeza" class="btn-status" onclick="definirStatus('limpeza')" disabled>4. Limpeza iniciada</button>
+
+                <div style="grid-column: span 2; height: 10px;"></div>
+
+                <button id="btn-encerrar" class="btn-status" style="background-color: #666 !important; color: white; grid-column: span 2;" onclick="encerrarAtividades()" disabled>
+                    🏁 FINALIZAR CICLO TOTAL
+                </button>
             </div>
 
             <footer class="footer-status">
@@ -64,94 +130,147 @@
         </main>
     </div>
 
-    <script>
-        // --- 1. IDENTIFICAÇÃO E NAVEGAÇÃO ---
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, get, serverTimestamp, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_H-Ilb_bXEf uL6aNyLu3cvUBe9G_3RKY",
+            authDomain: "salalivre-51288.firebaseapp.com",
+            projectId: "salalivre-51288",
+            storageBucket: "salalivre-51288.firebasestorage.app",
+            messagingSenderId: "307835751640",
+            appId: "1:307835751640:web:715796b42b827e7f9a0c7b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
         const h1Texto = document.querySelector('.titulo-pagina').textContent;
         const numSala = h1Texto.match(/\d+/)[0];
         document.getElementById('link-config').href = `configuracao.html?sala=${numSala}`;
 
-        // --- 2. FUNÇÃO DO SIDEBAR (A que estava faltando!) ---
-        function toggleSidebar() {
+        // --- FUNÇÃO DE TRAVA DE FLUXO ---
+        window.gerenciarBotoes = function(statusAtual) {
+            const botoes = {
+                nova: document.getElementById('btn-nova-cirurgia'),
+                pronta: document.getElementById('btn-disponivel'),
+                ocupada: document.getElementById('btn-ocupada'),
+                retirada: document.getElementById('btn-retirada'),
+                limpeza: document.getElementById('btn-limpeza'),
+                fim: document.getElementById('btn-encerrar')
+            };
+
+            // Desabilita tudo por padrão
+            Object.values(botoes).forEach(b => b.disabled = true);
+
+            // Regras do fluxo lógico
+            if (!statusAtual || statusAtual === 'indisponivel') {
+                botoes.nova.disabled = false;
+            } else if (statusAtual === 'preparacao') {
+                botoes.pronta.disabled = false;
+            } else if (statusAtual === 'disponivel') {
+                botoes.ocupada.disabled = false;
+            } else if (statusAtual === 'ocupada') {
+                botoes.retirada.disabled = false;
+            } else if (statusAtual === 'retirada') {
+                botoes.limpeza.disabled = false;
+            } else if (statusAtual === 'limpeza') {
+                botoes.fim.disabled = false;
+            }
+        };
+
+        window.toggleSidebar = function() {
             const sidebar = document.getElementById("mySidebar");
             const overlay = document.getElementById("overlay");
-            
-            if (sidebar.style.left === "0px") {
-                sidebar.style.left = "-300px";
-                overlay.style.display = "none";
-            } else {
-                sidebar.style.left = "0px";
-                overlay.style.display = "block";
-            }
-        }
+            sidebar.style.left = (sidebar.style.left === "0px") ? "-300px" : "0px";
+            overlay.style.display = (overlay.style.display === "block") ? "none" : "block";
+        };
 
-        // --- 3. LÓGICA DE STATUS E BANCO DE DADOS ---
-        function definirStatus(novoStatus) {
+        window.atualizarRelogio = function() {
             const agora = new Date();
-            const timestampAtual = agora.getTime();
-            const horarioFormatado = agora.toLocaleTimeString('pt-BR');
+            document.getElementById('data-js').textContent = agora.toLocaleDateString('pt-BR');
+            document.getElementById('relogio-js').innerHTML = `<span class="icon-clock">🕒</span> ${agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}`;
+        };
 
-            let historico = JSON.parse(localStorage.getItem(`historico_sala_${numSala}`)) || [];
-            let duracaoFormatada = "Início";
-
-            if (historico.length > 0) {
-                const ultimoEvento = historico[historico.length - 1];
-                const diferencaMs = timestampAtual - ultimoEvento.timestamp;
-                const totalMinutos = Math.floor(diferencaMs / 60000);
-                const segundosRestantes = Math.floor((diferencaMs % 60000) / 1000);
-                duracaoFormatada = `${totalMinutos}min ${segundosRestantes}s`;
-                ultimoEvento.duracao = duracaoFormatada;
+        window.iniciarNovaCirurgia = async function() {
+            const snapshot = await get(ref(db, `config_salas/sala${numSala}`));
+            if (!snapshot.exists()) {
+                alert("⚠️ Por favor, cadastre a equipe na prancheta antes de iniciar.");
+                return;
             }
+            const equipe = snapshot.val();
+            const idUnico = "OP-" + numSala + "-" + Date.now();
+            await set(ref(db, `operacao_ativa/sala${numSala}`), {
+                idOperacao: idUnico, equipe: equipe, status: "preparacao", statusAnterior: "preparacao", ultimoTimestamp: Date.now()
+            });
+            set(ref(db, `status_atual/sala${numSala}`), { status: "preparacao", timestamp: serverTimestamp() });
+        };
 
-            const novoRegistro = {
-                status: novoStatus,
-                horarioInicio: horarioFormatado,
-                timestamp: timestampAtual,
-                duracao: "Em curso..."
-            };
+        window.definirStatus = async function(novoStatus) {
+            const agora = Date.now();
+            const dataString = new Date().toLocaleDateString('pt-BR');
+            const operacaoRef = ref(db, `operacao_ativa/sala${numSala}`);
+            const snap = await get(operacaoRef);
+            const dados = snap.val();
 
-            historico.push(novoRegistro);
-            localStorage.setItem(`historico_sala_${numSala}`, JSON.stringify(historico));
-            localStorage.setItem(`status_sala_${numSala}`, novoStatus);
+            const diffMs = agora - dados.ultimoTimestamp;
+            const duracao = `${Math.floor(diffMs / 60000)}min ${Math.floor((diffMs % 60000) / 1000)}s`;
 
-            atualizarCoresBotoes(novoStatus);
-        }
-
-        function atualizarCoresBotoes(statusAtivo) {
-            const botoes = document.querySelectorAll('.btn-status');
-            botoes.forEach(btn => {
-                btn.classList.remove('ativo-ocupada', 'ativo-retirada', 'ativo-limpeza', 'ativo-disponivel');
+            await set(push(ref(db, `historico/sala${numSala}`)), {
+                idOperacao: dados.idOperacao, data: dataString, status: dados.statusAnterior,
+                duracao: duracao, horarioInicio: new Date(dados.ultimoTimestamp).toLocaleTimeString(),
+                ...dados.equipe
             });
 
-            const mapaIds = {
-                'ocupada': 'btn-ocupada',
-                'retirada': 'btn-retirada',
-                'limpeza': 'btn-limpeza',
-                'disponivel': 'btn-disponivel'
-            };
-            
-            const id = mapaIds[statusAtivo];
-            if (id) document.getElementById(id).classList.add(`ativo-${statusAtivo}`);
-        }
+            await update(operacaoRef, { status: novoStatus, statusAnterior: novoStatus, ultimoTimestamp: agora });
+            set(ref(db, `status_atual/sala${numSala}`), { status: novoStatus, timestamp: serverTimestamp() });
+        };
 
-        // --- 4. RELÓGIO E INICIALIZAÇÃO ---
-        function atualizarRelogio() {
-            const agora = new Date();
-            const dia = String(agora.getDate()).padStart(2, '0');
-            const mes = String(agora.getMonth() + 1).padStart(2, '0');
-            const ano = String(agora.getFullYear()).slice(-2);
-            const horas = String(agora.getHours()).padStart(2, '0');
-            const minutos = String(agora.getMinutes()).padStart(2, '0');
+        window.encerrarAtividades = async function() {
+            const operacaoRef = ref(db, `operacao_ativa/sala${numSala}`);
+            const snap = await get(operacaoRef);
+            const dados = snap.val();
+            const agora = Date.now();
+            const duracaoFinal = `${Math.floor((agora - dados.ultimoTimestamp)/60000)}min ${Math.floor(((agora - dados.ultimoTimestamp)%60000)/1000)}s`;
             
-            document.getElementById('data-js').textContent = `${dia}/${mes}/${ano}`;
-            document.getElementById('relogio-js').innerHTML = `<span class="icon-clock">🕒</span> ${horas}:${minutos}`;
-        }
+            await set(push(ref(db, `historico/sala${numSala}`)), {
+                idOperacao: dados.idOperacao, data: new Date().toLocaleDateString('pt-BR'),
+                status: dados.statusAnterior, duracao: duracaoFinal, horarioInicio: new Date(dados.ultimoTimestamp).toLocaleTimeString(),
+                ...dados.equipe
+            });
+
+            await set(operacaoRef, null);
+            set(ref(db, `status_atual/sala${numSala}`), { status: 'indisponivel', timestamp: serverTimestamp() });
+            alert("🏁 Ciclo encerrado com sucesso!");
+        };
 
         window.onload = function() {
             atualizarRelogio();
             setInterval(atualizarRelogio, 1000);
             
-            const statusAtual = localStorage.getItem(`status_sala_${numSala}`);
-            if (statusAtual) atualizarCoresBotoes(statusAtual);
+            onValue(ref(db, `status_atual/sala${numSala}`), (snapshot) => {
+                const status = snapshot.val() ? snapshot.val().status : 'indisponivel';
+                
+                // Aplica a trava de botões baseada no status vindo do Firebase
+                gerenciarBotoes(status);
+
+                // Atualiza as cores visuais
+                document.querySelectorAll('.btn-status').forEach(btn => btn.classList.remove('ativo-ocupada', 'ativo-retirada', 'ativo-limpeza', 'ativo-disponivel'));
+                const mapaIds = { 'ocupada': 'btn-ocupada', 'retirada': 'btn-retirada', 'limpeza': 'btn-limpeza', 'disponivel': 'btn-disponivel' };
+                if (mapaIds[status]) document.getElementById(mapaIds[status]).classList.add(`ativo-${status}`);
+            });
+
+            onValue(ref(db, `operacao_ativa/sala${numSala}`), (snapshot) => {
+                const dados = snapshot.val();
+                const painel = document.getElementById('info-equipe');
+                if (dados && dados.equipe) {
+                    painel.style.display = 'block';
+                    document.getElementById('nome-cirurgiao').textContent = dados.equipe.cirurgiao;
+                    document.getElementById('nome-residente').textContent = dados.equipe.residente || "N/A";
+                    document.getElementById('nome-enfermeiro').textContent = dados.equipe.enfermeiro;
+                } else { painel.style.display = 'none'; }
+            });
         };
     </script>
 </body>
