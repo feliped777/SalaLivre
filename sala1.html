@@ -68,125 +68,118 @@
         </main>
     </div>
 
-    <script>
-        // --- 1. IDENTIFICAÇÃO E NAVEGAÇÃO ---
-        const h1Texto = document.querySelector('.titulo-pagina').textContent;
-        const numSala = h1Texto.match(/\d+/)[0];
-        document.getElementById('link-config').href = `configuracao.html?sala=${numSala}`;
+    <script type="module">
+    // 1. IMPORTAÇÃO FIREBASE
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // --- 2. FUNÇÃO DO SIDEBAR (A que estava faltando!) ---
-        function toggleSidebar() {
-            const sidebar = document.getElementById("mySidebar");
-            const overlay = document.getElementById("overlay");
-            
-            if (sidebar.style.left === "0px") {
-                sidebar.style.left = "-300px";
-                overlay.style.display = "none";
-            } else {
-                sidebar.style.left = "0px";
-                overlay.style.display = "block";
-            }
+    // Suas credenciais reais
+    const firebaseConfig = {
+        apiKey: "AIzaSyA_H-Ilb_bXEf uL6aNyLu3cvUBe9G_3RKY",
+        authDomain: "salalivre-51288.firebaseapp.com",
+        projectId: "salalivre-51288",
+        storageBucket: "salalivre-51288.firebasestorage.app",
+        messagingSenderId: "307835751640",
+        appId: "1:307835751640:web:715796b42b827e7f9a0c7b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- 2. IDENTIFICAÇÃO E NAVEGAÇÃO ---
+    const h1Texto = document.querySelector('.titulo-pagina').textContent;
+    const numSala = h1Texto.match(/\d+/)[0];
+    document.getElementById('link-config').href = `configuracao.html?sala=${numSala}`;
+
+    // --- 3. FUNÇÕES DE INTERFACE (Globais) ---
+    window.toggleSidebar = function() {
+        const sidebar = document.getElementById("mySidebar");
+        const overlay = document.getElementById("overlay");
+        if (sidebar.style.left === "0px") {
+            sidebar.style.left = "-300px";
+            overlay.style.display = "none";
+        } else {
+            sidebar.style.left = "0px";
+            overlay.style.display = "block";
         }
+    };
 
-        // --- 3. LÓGICA DE STATUS E BANCO DE DADOS ---
-        function definirStatus(novoStatus) {
-            const agora = new Date();
-            const timestampAtual = agora.getTime();
-            const horarioFormatado = agora.toLocaleTimeString('pt-BR');
+    window.atualizarRelogio = function() {
+        const agora = new Date();
+        const dia = String(agora.getDate()).padStart(2, '0');
+        const mes = String(agora.getMonth() + 1).padStart(2, '0');
+        const ano = String(agora.getFullYear()).slice(-2);
+        const horas = String(agora.getHours()).padStart(2, '0');
+        const minutos = String(agora.getMinutes()).padStart(2, '0');
+        document.getElementById('data-js').textContent = `${dia}/${mes}/${ano}`;
+        document.getElementById('relogio-js').innerHTML = `<span class="icon-clock">🕒</span> ${horas}:${minutos}`;
+    };
 
-            let historico = JSON.parse(localStorage.getItem(`historico_sala_${numSala}`)) || [];
-            let duracaoFormatada = "Início";
-
-            if (historico.length > 0) {
-                const ultimoEvento = historico[historico.length - 1];
-                const diferencaMs = timestampAtual - ultimoEvento.timestamp;
-                const totalMinutos = Math.floor(diferencaMs / 60000);
-                const segundosRestantes = Math.floor((diferencaMs % 60000) / 1000);
-                duracaoFormatada = `${totalMinutos}min ${segundosRestantes}s`;
-                ultimoEvento.duracao = duracaoFormatada;
-            }
-
-            const novoRegistro = {
-                status: novoStatus,
-                horarioInicio: horarioFormatado,
-                timestamp: timestampAtual,
-                duracao: "Em curso..."
-            };
-
-            historico.push(novoRegistro);
-            localStorage.setItem(`historico_sala_${numSala}`, JSON.stringify(historico));
-            localStorage.setItem(`status_sala_${numSala}`, novoStatus);
-
-            atualizarCoresBotoes(novoStatus);
-        }
-
-        function atualizarCoresBotoes(statusAtivo) {
-            const botoes = document.querySelectorAll('.btn-status');
-            botoes.forEach(btn => {
-                btn.classList.remove('ativo-ocupada', 'ativo-retirada', 'ativo-limpeza', 'ativo-disponivel');
-            });
-
-            const mapaIds = {
-                'ocupada': 'btn-ocupada',
-                'retirada': 'btn-retirada',
-                'limpeza': 'btn-limpeza',
-                'disponivel': 'btn-disponivel'
-            };
-            
-            const id = mapaIds[statusAtivo];
-            if (id) document.getElementById(id).classList.add(`ativo-${statusAtivo}`);
-        }
-
-        // --- 4. RELÓGIO E INICIALIZAÇÃO ---
-        function atualizarRelogio() {
-            const agora = new Date();
-            const dia = String(agora.getDate()).padStart(2, '0');
-            const mes = String(agora.getMonth() + 1).padStart(2, '0');
-            const ano = String(agora.getFullYear()).slice(-2);
-            const horas = String(agora.getHours()).padStart(2, '0');
-            const minutos = String(agora.getMinutes()).padStart(2, '0');
-            
-            document.getElementById('data-js').textContent = `${dia}/${mes}/${ano}`;
-            document.getElementById('relogio-js').innerHTML = `<span class="icon-clock">🕒</span> ${horas}:${minutos}`;
-        }
-
-        function encerrarAtividades() {
-    const agora = new Date();
-    const timestampAtual = agora.getTime();
-    
-    let historico = JSON.parse(localStorage.getItem(`historico_sala_${numSala}`)) || [];
-
-    if (historico.length > 0) {
-        const ultimoEvento = historico[historico.length - 1];
-        
-        // Só calcula se o último status ainda estiver "Em curso..."
-        if (ultimoEvento.duracao === "Em curso...") {
-            const diferencaMs = timestampAtual - ultimoEvento.timestamp;
-            const totalMinutos = Math.floor(diferencaMs / 60000);
-            const segundosRestantes = Math.floor((diferencaMs % 60000) / 1000);
-            
-            ultimoEvento.duracao = `${totalMinutos}min ${segundosRestantes}s (Encerrado)`;
-            
-            localStorage.setItem(`historico_sala_${numSala}`, JSON.stringify(historico));
-        }
-    }
-
-    // Define o status como 'indisponivel' para a Visão ficar cinza
-    localStorage.setItem(`status_sala_${numSala}`, 'indisponivel');
-    
-    // Remove as cores dos botões
-    atualizarCoresBotoes('indisponivel');
-    
-    alert(`Atividades da Sala ${numSala} encerradas. O tempo de desuso não será contabilizado.`);
-}
-
-        window.onload = function() {
-            atualizarRelogio();
-            setInterval(atualizarRelogio, 1000);
-            
-            const statusAtual = localStorage.getItem(`status_sala_${numSala}`);
-            if (statusAtual) atualizarCoresBotoes(statusAtual);
+    window.atualizarCoresBotoes = function(statusAtivo) {
+        const botoes = document.querySelectorAll('.btn-status');
+        botoes.forEach(btn => {
+            btn.classList.remove('ativo-ocupada', 'ativo-retirada', 'ativo-limpeza', 'ativo-disponivel', 'ativo-indisponivel');
+        });
+        const mapaIds = {
+            'ocupada': 'btn-ocupada',
+            'retirada': 'btn-retirada',
+            'limpeza': 'btn-limpeza',
+            'disponivel': 'btn-disponivel',
+            'indisponivel': 'btn-encerrar'
         };
-    </script>
+        const id = mapaIds[statusAtivo];
+        if (id) document.getElementById(id).classList.add(`ativo-${statusAtivo}`);
+    };
+
+    // --- 4. LÓGICA DE STATUS (FIREBASE + CÁLCULO) ---
+    window.definirStatus = function(novoStatus) {
+        const agora = new Date();
+        const horarioFormatado = agora.toLocaleTimeString('pt-BR');
+
+        // Referência do histórico desta sala na nuvem
+        const historicoRef = ref(db, `historico/sala${numSala}`);
+
+        // 1. Primeiro, buscamos o último registro para fechar o tempo dele
+        // (Isso agora deve ser feito no Firebase para sincronizar entre tablets)
+        
+        // 2. Atualiza o status atual na nuvem (para a Visão ler)
+        set(ref(db, `status_atual/sala${numSala}`), {
+            status: novoStatus,
+            horario: horarioFormatado,
+            timestamp: serverTimestamp()
+        });
+
+        // 3. Adiciona novo registro ao histórico
+        push(historicoRef, {
+            status: novoStatus,
+            horarioInicio: horarioFormatado,
+            timestamp: serverTimestamp(),
+            duracao: "Em curso..."
+        });
+    };
+
+    window.encerrarAtividades = function() {
+        set(ref(db, `status_atual/sala${numSala}`), {
+            status: 'indisponivel',
+            horario: new Date().toLocaleTimeString('pt-BR'),
+            timestamp: serverTimestamp()
+        });
+        alert(`Atividades da Sala ${numSala} encerradas na nuvem.`);
+    };
+
+    // --- 5. INICIALIZAÇÃO E SINCRONIZAÇÃO EM TEMPO REAL ---
+    window.onload = function() {
+        atualizarRelogio();
+        setInterval(atualizarRelogio, 1000);
+
+        // Escuta o Firebase: Se o status mudar na nuvem, o botão brilha no tablet
+        onValue(ref(db, `status_atual/sala${numSala}`), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                atualizarCoresBotoes(data.status);
+            }
+        });
+    };
+</script>
 </body>
 </html>

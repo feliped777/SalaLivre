@@ -63,35 +63,66 @@
         </main>
     </div>
 
-    <script>
-        function atualizarPainelVisao() {
-            console.log("Atualizando painel..."); // Apenas para debug no console
-            for (let i = 1; i <= 16; i++) {
-                const statusSalvo = localStorage.getItem(`status_sala_${i}`);
-                const hexElemento = document.getElementById(`sala-${i}`);
+    <script type="module">
+    // 1. IMPORTAÇÃO FIREBASE
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-                if (hexElemento) {
-                    hexElemento.classList.remove('disponivel', 'retirada', 'limpeza', 'ocupada', 'indisponivel');
-                    const classeFinal = statusSalvo || 'indisponivel';
-                    hexElemento.classList.add(classeFinal);
-                }
+    // Suas credenciais reais (as mesmas usadas nas salas)
+    const firebaseConfig = {
+        apiKey: "AIzaSyA_H-Ilb_bXEf uL6aNyLu3cvUBe9G_3RKY",
+        authDomain: "salalivre-51288.firebaseapp.com",
+        projectId: "salalivre-51288",
+        storageBucket: "salalivre-51288.firebasestorage.app",
+        messagingSenderId: "307835751640",
+        appId: "1:307835751640:web:715796b42b827e7f9a0c7b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- FUNÇÃO PARA ATUALIZAR O HEXÁGONO ---
+    function aplicarStatusHexagono(salaNum, status) {
+        const hexElemento = document.getElementById(`sala-${salaNum}`);
+        if (hexElemento) {
+            // Remove todas as classes de cor possíveis
+            hexElemento.classList.remove('disponivel', 'retirada', 'limpeza', 'ocupada', 'indisponivel');
+            
+            // Adiciona a classe que veio do Firebase (ou 'indisponivel' por padrão)
+            const classeFinal = status || 'indisponivel';
+            hexElemento.classList.add(classeFinal);
+        }
+    }
+
+    // --- MÁGICA DA ATUALIZAÇÃO EM TEMPO REAL ---
+    // Em vez de setInterval ou eventListener 'storage', usamos o onValue do Firebase
+    const statusRef = ref(db, 'status_atual');
+
+    onValue(statusRef, (snapshot) => {
+        const dadosSalas = snapshot.val();
+        
+        console.log("Dados recebidos da nuvem:", dadosSalas);
+
+        // Se não houver dados no banco ainda
+        if (!dadosSalas) {
+            // Define todas como indisponível por padrão
+            for (let i = 1; i <= 16; i++) {
+                aplicarStatusHexagono(i, 'indisponivel');
             }
+            return;
         }
 
-        // 1. Atualiza ao carregar a página normalmente
-        window.onload = atualizarPainelVisao;
-
-        // 2. MÁGICA DA ATUALIZAÇÃO AUTOMÁTICA:
-        // Este evento escuta mudanças no localStorage vindas de OUTRAS abas
-        window.addEventListener('storage', (event) => {
-            if (event.key && event.key.startsWith('status_sala_')) {
-                atualizarPainelVisao();
+        // Percorre as 16 salas
+        for (let i = 1; i <= 16; i++) {
+            const salaData = dadosSalas[`sala${i}`];
+            if (salaData) {
+                aplicarStatusHexagono(i, salaData.status);
+            } else {
+                aplicarStatusHexagono(i, 'indisponivel');
             }
-        });
+        }
+    });
 
-        // 3. OPCIONAL: Atualização forçada a cada 2 segundos 
-        // (Garante atualização mesmo se estiver na mesma aba em alguns navegadores)
-        setInterval(atualizarPainelVisao, 2000);
-    </script>
+</script>
 </body>
 </html>
