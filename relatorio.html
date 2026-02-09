@@ -7,80 +7,31 @@
     <title>Relatório de Eficiência - HGF</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        body.page-status {
-            overflow: hidden; 
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        .container-relatorio {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            overflow: hidden;
-        }
-        .table-container {
-            width: 98%;
-            background: white;
-            padding: 20px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin-top: 10px;
-            overflow: auto; 
-            flex: 1;
-            margin-bottom: 20px;
-        }
-        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1900px; }
-        th {
-            background-color: #4db1ad;
-            color: white;
-            padding: 12px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            font-size: 0.9rem;
-        }
+        body.page-status { overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        .container-relatorio { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow: hidden; }
+        .table-container { width: 98%; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 10px; overflow: auto; flex: 1; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1950px; }
+        th { background-color: #4db1ad; color: white; padding: 12px; position: sticky; top: 0; z-index: 10; font-size: 0.9rem; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
         
-        /* Estilo para a linha vazia de separação */
-        .linha-vazia {
-            background-color: #f2f2f2 !important;
-            height: 20px;
+        .linha-vazia { background-color: #f2f2f2 !important; height: 15px; }
+        
+        /* Destaque para o Tempo Total */
+        .linha-resumo-total {
+            background-color: #e8f4f3 !important;
+            font-weight: bold;
+            color: #2c7a77;
+            border-bottom: 2px solid #4db1ad !important;
         }
 
-        .area-botoes-relatorio {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            padding-bottom: 20px;
-            background-color: white;
-        }
-        .badge {
-            padding: 5px 10px;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: white;
-        }
+        .area-botoes-relatorio { width: 100%; display: flex; justify-content: center; gap: 20px; padding-bottom: 20px; background-color: white; }
+        .badge { padding: 5px 10px; border-radius: 10px; font-weight: bold; font-size: 0.75rem; text-transform: uppercase; color: white; }
         .badge.ativo-ocupada { background-color: #ff0000; }
         .badge.ativo-retirada { background-color: #ffdb58; color: black; }
         .badge.ativo-limpeza { background-color: #ffa07a; }
         .badge.ativo-disponivel { background-color: #90ee90; color: black; }
         
-        .btn-exportar {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.3s;
-        }
+        .btn-exportar { background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-exportar:hover { background-color: #218838; }
     </style>
 </head>
@@ -120,7 +71,7 @@
         <div class="area-botoes-relatorio">
             <button onclick="exportarExcel()" class="btn-exportar">📊 EXPORTAR EXCEL</button>
             <button onclick="limparHistorico()" class="btn-salvar-config" style="background-color: #ff4d4d;">LIMPAR TUDO</button>
-            <a href="controle.html" class="btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">VOLTAR</a>
+            <a href="index.html" class="btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">VOLTAR</a>
         </div>
     </div>
 
@@ -141,12 +92,25 @@
         const db = getDatabase(app);
 
         const traduzirStatus = {
-            'disponivel': 'Sala Pronta',
-            'ocupada': 'Em Cirurgia',
-            'retirada': 'Retirada Paciente',
-            'limpeza': 'Limpeza Iniciada',
-            'preparacao': 'Preparação'
+            'disponivel': 'Sala Pronta', 'ocupada': 'Em Cirurgia', 'retirada': 'Retirada Paciente',
+            'limpeza': 'Limpeza Iniciada', 'preparacao': 'Preparação'
         };
+
+        // Converte "5min 30s" em segundos para permitir cálculos
+        function extrairSegundos(duracaoStr) {
+            if (!duracaoStr) return 0;
+            const partes = duracaoStr.match(/\d+/g);
+            if (!partes) return 0;
+            const min = parseInt(partes[0]) || 0;
+            const seg = parseInt(partes[1]) || 0;
+            return (min * 60) + seg;
+        }
+
+        function formatarTempoTotal(totalSegundos) {
+            const min = Math.floor(totalSegundos / 60);
+            const seg = totalSegundos % 60;
+            return `${min}min ${seg}s`;
+        }
 
         function carregarRelatorio() {
             const corpo = document.getElementById('tabela-corpo');
@@ -161,26 +125,33 @@
                     return;
                 }
 
-                let ultimaSalaProcessada = ""; // Para rastrear mudança de sala
+                let ultimaSalaProcessada = "";
 
                 Object.keys(data).forEach(salaKey => {
-                    // SE MUDOU A SALA (ex: de Sala 1 para Sala 2), INSERE LINHA VAZIA
+                    // Pula linha entre salas diferentes
                     if (ultimaSalaProcessada !== "" && ultimaSalaProcessada !== salaKey) {
                         const trSeparadorSala = document.createElement('tr');
                         trSeparadorSala.innerHTML = "<td colspan='12' class='linha-vazia'></td>";
                         corpo.appendChild(trSeparadorSala);
                     }
 
-                    const eventos = data[salaKey];
-                    const listaEventos = Object.values(eventos).reverse();
+                    const eventos = Object.values(data[salaKey]).reverse();
                     let ultimoIdOp = "";
+                    let somaSegundos = 0;
 
-                    listaEventos.forEach(evento => {
-                        // SE MUDOU O PACIENTE NA MESMA SALA, INSERE LINHA VAZIA
+                    eventos.forEach((evento, index) => {
+                        // Se mudar o paciente na mesma sala, insere resumo e pula linha
                         if (ultimoIdOp !== "" && ultimoIdOp !== evento.idOperacao) {
-                            const trSeparadorOp = document.createElement('tr');
-                            trSeparadorOp.innerHTML = "<td colspan='12' class='linha-vazia'></td>";
-                            corpo.appendChild(trSeparadorOp);
+                            const trTotal = document.createElement('tr');
+                            trTotal.className = "linha-resumo-total";
+                            trTotal.innerHTML = `<td colspan="4" style="text-align:right">TEMPO TOTAL DE USO DA SALA:</td><td>${formatarTempoTotal(somaSegundos)}</td><td colspan="7"></td>`;
+                            corpo.appendChild(trTotal);
+                            
+                            const trVazia = document.createElement('tr');
+                            trVazia.innerHTML = "<td colspan='12' class='linha-vazia'></td>";
+                            corpo.appendChild(trVazia);
+                            
+                            somaSegundos = 0; 
                         }
 
                         const linha = document.createElement('tr');
@@ -200,10 +171,19 @@
                         `;
                         corpo.appendChild(linha);
                         
-                        ultimoIdOp = evento.idOperacao; 
+                        somaSegundos += extrairSegundos(evento.duracao);
+                        ultimoIdOp = evento.idOperacao;
+
+                        // Adiciona resumo no final da lista da sala
+                        if (index === eventos.length - 1) {
+                            const trTotalFinal = document.createElement('tr');
+                            trTotalFinal.className = "linha-resumo-total";
+                            trTotalFinal.innerHTML = `<td colspan="4" style="text-align:right">TEMPO TOTAL DE USO DA SALA:</td><td>${formatarTempoTotal(somaSegundos)}</td><td colspan="7"></td>`;
+                            corpo.appendChild(trTotalFinal);
+                        }
                     });
 
-                    ultimaSalaProcessada = salaKey; // Atualiza para a próxima comparação de sala
+                    ultimaSalaProcessada = salaKey;
                 });
             });
         }
@@ -223,7 +203,7 @@
         };
 
         window.limparHistorico = function() {
-            if (confirm("Deseja apagar todo o histórico de todas as salas na nuvem?")) {
+            if (confirm("ATENÇÃO: Deseja apagar permanentemente todo o histórico de todas as salas?")) {
                 set(ref(db, 'historico'), null);
                 set(ref(db, 'status_atual'), null);
                 set(ref(db, 'operacao_ativa'), null);
